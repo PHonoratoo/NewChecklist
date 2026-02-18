@@ -30,12 +30,22 @@ export default function GroupsManager({
 
   const fetchGroups = useCallback(async () => {
     try {
-      const res = await fetch('/api/groups')
-      if (!res.ok) throw new Error('Failed to fetch groups')
+      const res = await fetch('/api/groups', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      })
+      if (!res.ok) {
+        console.error('Groups fetch failed:', res.status)
+        setGroups([])
+        setIsLoading(false)
+        return
+      }
       const data = await res.json()
-      setGroups(data)
+      setGroups(Array.isArray(data) ? data : [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load groups')
+      console.error('Groups fetch error:', err)
+      setGroups([])
     } finally {
       setIsLoading(false)
     }
@@ -77,20 +87,25 @@ export default function GroupsManager({
   }
 
   const handleDeleteGroup = async (groupId: string) => {
-    if (!confirm('Delete this group?')) return
+    if (!confirm('Deletar este grupo?')) return
 
     try {
       const res = await fetch(`/api/groups/${groupId}`, {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
       })
 
-      if (!res.ok) throw new Error('Failed to delete group')
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Não foi possível deletar o grupo')
+      }
       setGroups(groups.filter((g) => g.id !== groupId))
       if (selectedGroupId === groupId) {
         onGroupSelect?.(null)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete group')
+      console.error('Delete error:', err)
+      setError(err instanceof Error ? err.message : 'Não foi possível deletar o grupo')
     }
   }
 

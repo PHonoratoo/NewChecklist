@@ -1,10 +1,19 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
+import dynamic from "next/dynamic"
 import Header from "@/components/header"
 import ChecklistEnhanced from "@/components/checklist-enhanced"
-import GroupsManager from "@/components/groups-manager"
-import PreferencesPanel from "@/components/preferences-panel"
+
+const GroupsManager = dynamic(
+  () => import("@/components/groups-manager"),
+  { loading: () => <div className="h-20 animate-pulse bg-muted rounded" /> }
+)
+
+const PreferencesPanel = dynamic(
+  () => import("@/components/preferences-panel"),
+  { loading: () => null }
+)
 
 export default function ChecklistPage({
   userId,
@@ -21,10 +30,12 @@ export default function ChecklistPage({
       <Header email={email} onSettingsClick={() => setShowPreferences(true)} />
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8">
         <div className="space-y-6">
-          <GroupsManager
-            onGroupSelect={setSelectedGroupId}
-            selectedGroupId={selectedGroupId}
-          />
+          <Suspense fallback={<div className="h-20 animate-pulse bg-muted rounded" />}>
+            <GroupsManager
+              onGroupSelect={setSelectedGroupId}
+              selectedGroupId={selectedGroupId}
+            />
+          </Suspense>
           <ChecklistEnhanced userId={userId} groupId={selectedGroupId} />
         </div>
       </main>

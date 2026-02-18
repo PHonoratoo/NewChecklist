@@ -5,8 +5,6 @@ import {
   useEffect,
   useCallback,
   useMemo,
-  useRef,
-  useTransition,
 } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -18,11 +16,19 @@ import {
   Plus,
   Trash2,
   Filter,
-  ChevronDown,
 } from 'lucide-react'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-import type { Task } from '@/lib/types'
-import { TASK_CATEGORIES } from '@/lib/types'
+
+interface Task {
+  id: string
+  title: string
+  status: number
+  user_id: string
+  created_at: string
+  category?: string
+  group_id?: string | null
+  due_date?: string | null
+}
 
 interface ChecklistEnhancedProps {
   userId: string
@@ -30,6 +36,12 @@ interface ChecklistEnhancedProps {
 }
 
 type TaskStatus = 'all' | 'completed' | 'pending' | 'rejected'
+
+const TASK_CATEGORIES = [
+  { id: 'daily', label: 'Diária', color: '#3b82f6' },
+  { id: 'weekly', label: 'Semanal', color: '#8b5cf6' },
+  { id: 'other', label: 'Outra', color: '#6b7280' },
+]
 
 export default function ChecklistEnhanced({
   userId,
@@ -50,7 +62,7 @@ export default function ChecklistEnhanced({
     try {
       let query = supabase
         .from('tasks')
-        .select('*')
+        .select('id, title, status, user_id, created_at, group_id, category, due_date')
         .eq('user_id', userId)
 
       if (groupId) {
@@ -62,11 +74,21 @@ export default function ChecklistEnhanced({
       })
 
       if (err) {
+        console.error('Fetch error:', err)
         setError('Não foi possível carregar as tarefas.')
-        console.error(err)
+        setTasks([])
       } else {
-        setTasks(data ?? [])
+        setTasks((data ?? []).map((task: any) => ({
+          ...task,
+          category: task.category || 'other',
+          group_id: task.group_id || null,
+          due_date: task.due_date || null,
+        })))
       }
+    } catch (err) {
+      console.error('Fetch exception:', err)
+      setError('Erro ao carregar tarefas')
+      setTasks([])
     } finally {
       setIsLoading(false)
     }
@@ -135,38 +157,39 @@ export default function ChecklistEnhanced({
 
   const handleAddTask = useCallback(async () => {
     if (!newTaskText.trim()) return
-    setIsCreating(async () => {
-      setError(null)
+    setIsCreating(true)
+    setError(null)
 
-      try {
-        const { data, error: err } = await supabase
-          .from('tasks')
-          .insert({
-            title: newTaskText.trim(),
-            status: 0,
-            user_id: userId,
-            group_id: groupId || null,
-            category: newTaskCategory,
-            due_date: null,
-          })
-          .select()
+    try {
+      const { data, error: err } = await supabase
+        .from('tasks')
+        .insert({
+          title: newTaskText.trim(),
+          status: 0,
+          user_id: userId,
+          group_id: groupId || null,
+          category: newTaskCategory,
+          due_date: null,
+        })
+        .select()
 
-        if (err) {
-          setError('Não foi possível adicionar a tarefa.')
-          console.error(err)
-          return
-        }
-
-        if (data && data[0]) {
-          setTasks((prev) => [...prev, data[0]])
-        }
-        setNewTaskText('')
-        setNewTaskCategory('other')
-      } catch (err) {
-        setError('Erro ao criar tarefa.')
+      if (err) {
+        setError('Não foi possível adicionar a tarefa.')
         console.error(err)
+        return
       }
-    })
+
+      if (data && data[0]) {
+        setTasks((prev) => [...prev, data[0]])
+      }
+      setNewTaskText('')
+      setNewTaskCategory('other')
+    } catch (err) {
+      setError('Erro ao criar tarefa.')
+      console.error(err)
+    } finally {
+      setIsCreating(false)
+    }
   }, [newTaskText, newTaskCategory, userId, groupId, supabase])
 
   const handleToggleStatus = useCallback(

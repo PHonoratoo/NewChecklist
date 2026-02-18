@@ -6,51 +6,63 @@ export async function updateSession(request: NextRequest) {
     request,
   })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          )
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
-          )
-        },
-      },
-    },
-  )
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  // Redirect unauthenticated users trying to access protected routes
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith('/auth')
-  ) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
-    return NextResponse.redirect(url)
+  // Check if environment variables are available
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    console.error('Missing Supabase environment variables')
+    // Continue without authentication checks if env vars are missing
+    return supabaseResponse
   }
 
-  // Redirect authenticated users away from auth pages
-  if (
-    user &&
-    request.nextUrl.pathname.startsWith('/auth')
-  ) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/'
-    return NextResponse.redirect(url)
+  try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) =>
+              request.cookies.set(name, value),
+            )
+            supabaseResponse = NextResponse.next({
+              request,
+            })
+            cookiesToSet.forEach(({ name, value, options }) =>
+              supabaseResponse.cookies.set(name, value, options),
+            )
+          },
+        },
+      },
+    )
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    // Redirect unauthenticated users trying to access protected routes
+    if (
+      !user &&
+      !request.nextUrl.pathname.startsWith('/auth')
+    ) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/auth/login'
+      return NextResponse.redirect(url)
+    }
+
+    // Redirect authenticated users away from auth pages
+    if (
+      user &&
+      request.nextUrl.pathname.startsWith('/auth')
+    ) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/'
+      return NextResponse.redirect(url)
+    }
+  } catch (error) {
+    console.error('Middleware error:', error)
+    // Continue with response even if auth check fails
   }
 
   return supabaseResponse

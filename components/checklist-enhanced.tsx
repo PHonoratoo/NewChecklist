@@ -41,7 +41,7 @@ export default function ChecklistEnhanced({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [taskStatus, setTaskStatus] = useState<TaskStatus>('all')
-  const [isCreating, setIsCreating] = startTransition
+  const [isCreating, setIsCreating] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
 
   const supabase = useMemo(() => createClient(), [])
